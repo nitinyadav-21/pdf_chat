@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: pdf-chat
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+    envVars:
+      - key: HF_TOKEN
+        sync: false          # paste your token manually in Render dashboard
+      - key: PYTHONUNBUFFERED
+        value: "1"
