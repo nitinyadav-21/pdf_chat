@@ -1,6 +1,7 @@
 """
 llm_handler.py
-Uses HuggingFace Inference API (v2) - the current working free endpoint.
+Uses HuggingFace's new Inference Router API (router.huggingface.co/v1)
+which replaced the old api-inference.huggingface.co endpoint.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from typing import List
 
 
 def _clean_text(text: str) -> str:
+    """Fix PDFs where every word is on its own line."""
     text = re.sub(r"(?<!\n)\n(?!\n)", " ", text)
     text = re.sub(r" +", " ", text)
     return text.strip()
@@ -43,8 +45,8 @@ def _answer_hf(question: str, context_chunks: List[str]) -> str:
     hf_token = os.getenv("HF_TOKEN", "")
     if not hf_token:
         raise RuntimeError(
-            "HF_TOKEN is not set. Go to Streamlit → Manage App → Settings → Secrets "
-            "and add: HF_TOKEN = \"hf_your_token_here\""
+            "HF_TOKEN not set. Add it in Streamlit → Manage App → Settings → Secrets.\n"
+            "Format: HF_TOKEN = \"hf_your_token_here\""
         )
 
     headers = {
@@ -52,11 +54,14 @@ def _answer_hf(question: str, context_chunks: List[str]) -> str:
         "Content-Type": "application/json",
     }
 
-    # These models support the new /v1/chat/completions endpoint (free)
+    # New HuggingFace router endpoint — works with free tier tokens
+    url = "https://router.huggingface.co/v1/chat/completions"
+
+    # Models available on the free router (tried in order)
     models = [
+        "meta-llama/Llama-3.1-8B-Instruct",
+        "Qwen/Qwen2.5-7B-Instruct",
         "mistralai/Mistral-7B-Instruct-v0.3",
-        "HuggingFaceH4/zephyr-7b-beta",
-        "microsoft/Phi-3-mini-4k-instruct",
     ]
 
     messages = _build_messages(question, context_chunks)
@@ -64,7 +69,6 @@ def _answer_hf(question: str, context_chunks: List[str]) -> str:
 
     for model_id in models:
         try:
-            url = f"https://api-inference.huggingface.co/models/{model_id}/v1/chat/completions"
             payload = {
                 "model": model_id,
                 "messages": messages,
@@ -75,18 +79,17 @@ def _answer_hf(question: str, context_chunks: List[str]) -> str:
 
             if resp.status_code == 401:
                 raise RuntimeError(
-                    "Invalid HF_TOKEN (401). Please check your token in Streamlit Secrets."
+                    "HF_TOKEN is invalid or missing 'Make calls to Inference Providers' permission.\n"
+                    "Go to huggingface.co/settings/tokens → create a NEW fine-grained token → "
+                    "enable 'Make calls to Inference Providers' → update your Streamlit secret."
                 )
-            if resp.status_code in (503, 504):
-                last_error = f"{model_id} unavailable ({resp.status_code})"
-                continue
-            if resp.status_code == 410:
-                last_error = f"{model_id} discontinued (410)"
+
+            if resp.status_code in (503, 504, 429):
+                last_error = f"{model_id} unavailable ({resp.status_code}), trying next..."
                 continue
 
             resp.raise_for_status()
             data = resp.json()
-
             text = data["choices"][0]["message"]["content"].strip()
             return _clean_text(text)
 
@@ -103,6 +106,7 @@ def _answer_hf(question: str, context_chunks: List[str]) -> str:
 
 
 def _answer_extractive(question: str, context_chunks: List[str]) -> str:
+    """Keyword-overlap fallback — always works without any API."""
     q_words = set(re.findall(r"\w+", question.lower()))
     best_sentence = ""
     best_score = -1
@@ -121,12 +125,14 @@ def _answer_extractive(question: str, context_chunks: List[str]) -> str:
 
 
 def get_answer(question: str, context_chunks: List[str]) -> str:
+    """Try HuggingFace router API, fall back to extractive if it fails."""
+
     # Ollama (local only)
     if os.getenv("USE_OLLAMA", "").strip() == "1":
         try:
             import requests
             model = os.getenv("OLLAMA_MODEL", "mistral")
-            prompt = question
+            prompt = f"Answer based on this context:\n\n{''.join(context_chunks)}\n\nQuestion: {question}"
             resp = requests.post(
                 "http://localhost:11434/api/generate",
                 json={"model": model, "prompt": prompt, "stream": False},
@@ -137,7 +143,7 @@ def get_answer(question: str, context_chunks: List[str]) -> str:
         except Exception as e:
             print(f"[llm_handler] Ollama failed: {e}")
 
-    # HuggingFace new chat completions API
+    # HuggingFace new router API
     try:
         return _answer_hf(question, context_chunks)
     except Exception as e:
