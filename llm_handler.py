@@ -1,6 +1,6 @@
 """
 llm_handler.py
-Generates answers from retrieved context using HuggingFace Inference API.
+Uses HuggingFace Inference API (v2) - the current working free endpoint.
 """
 
 from __future__ import annotations
@@ -11,100 +11,98 @@ from typing import List
 
 
 def _clean_text(text: str) -> str:
-    """Fix PDFs where every word is on its own line."""
     text = re.sub(r"(?<!\n)\n(?!\n)", " ", text)
     text = re.sub(r" +", " ", text)
     return text.strip()
 
 
-def _build_prompt(question: str, context_chunks: List[str]) -> str:
+def _build_messages(question: str, context_chunks: List[str]) -> List[dict]:
     cleaned = [_clean_text(c) for c in context_chunks]
     context = "\n\n---\n\n".join(
         f"[Excerpt {i+1}]:\n{chunk}" for i, chunk in enumerate(cleaned)
     )
-    return textwrap.dedent(f"""
-        You are a helpful assistant. Answer the user's question based ONLY on the
-        provided document excerpts. If the answer is not in the excerpts, say so.
-        Be concise and write in full sentences.
+    return [
+        {
+            "role": "system",
+            "content": (
+                "You are a helpful assistant. Answer the user's question based ONLY "
+                "on the provided document excerpts. If the answer is not in the excerpts, "
+                "say so clearly. Be concise and write in full sentences."
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"Document excerpts:\n{context}\n\nQuestion: {question}",
+        },
+    ]
 
-        Document excerpts:
-        {context}
 
-        Question: {question}
-
-        Answer:
-    """).strip()
-
-
-def _answer_hf(prompt: str) -> str:
+def _answer_hf(question: str, context_chunks: List[str]) -> str:
     import requests
 
     hf_token = os.getenv("HF_TOKEN", "")
     if not hf_token:
-        raise RuntimeError("HF_TOKEN is not set in Streamlit secrets.")
+        raise RuntimeError(
+            "HF_TOKEN is not set. Go to Streamlit → Manage App → Settings → Secrets "
+            "and add: HF_TOKEN = \"hf_your_token_here\""
+        )
 
     headers = {
         "Authorization": f"Bearer {hf_token}",
         "Content-Type": "application/json",
     }
 
-    # Try multiple models in order — first one that responds wins
+    # These models support the new /v1/chat/completions endpoint (free)
     models = [
+        "mistralai/Mistral-7B-Instruct-v0.3",
         "HuggingFaceH4/zephyr-7b-beta",
-        "mistralai/Mistral-7B-Instruct-v0.2",
-        "tiiuae/falcon-7b-instruct",
+        "microsoft/Phi-3-mini-4k-instruct",
     ]
 
+    messages = _build_messages(question, context_chunks)
     last_error = None
+
     for model_id in models:
         try:
-            url = f"https://api-inference.huggingface.co/models/{model_id}"
+            url = f"https://api-inference.huggingface.co/models/{model_id}/v1/chat/completions"
             payload = {
-                "inputs": prompt,
-                "parameters": {
-                    "max_new_tokens": 512,
-                    "temperature": 0.3,
-                    "return_full_text": False,
-                    "do_sample": True,
-                },
+                "model": model_id,
+                "messages": messages,
+                "max_tokens": 512,
+                "temperature": 0.3,
             }
             resp = requests.post(url, headers=headers, json=payload, timeout=30)
 
-            # Model still loading — try next
-            if resp.status_code == 503:
-                last_error = f"{model_id} is loading (503)"
-                continue
-
-            # Auth error — no point trying other models
             if resp.status_code == 401:
                 raise RuntimeError(
-                    "Invalid HF_TOKEN. Go to Streamlit → Manage App → Settings → Secrets "
-                    "and make sure HF_TOKEN = \"hf_your_token\" is set correctly."
+                    "Invalid HF_TOKEN (401). Please check your token in Streamlit Secrets."
                 )
+            if resp.status_code in (503, 504):
+                last_error = f"{model_id} unavailable ({resp.status_code})"
+                continue
+            if resp.status_code == 410:
+                last_error = f"{model_id} discontinued (410)"
+                continue
 
             resp.raise_for_status()
             data = resp.json()
 
-            if isinstance(data, list) and data:
-                text = data[0].get("generated_text", "").strip()
-                return _clean_text(text)
+            text = data["choices"][0]["message"]["content"].strip()
+            return _clean_text(text)
 
-            last_error = f"{model_id} returned unexpected format: {data}"
-
+        except RuntimeError:
+            raise
         except requests.exceptions.Timeout:
             last_error = f"{model_id} timed out"
             continue
-        except RuntimeError:
-            raise
         except Exception as e:
-            last_error = f"{model_id} error: {e}"
+            last_error = f"{model_id}: {e}"
             continue
 
-    raise RuntimeError(f"All HuggingFace models failed. Last error: {last_error}")
+    raise RuntimeError(f"All models failed. Last error: {last_error}")
 
 
 def _answer_extractive(question: str, context_chunks: List[str]) -> str:
-    """Keyword-overlap fallback — always works without any API."""
     q_words = set(re.findall(r"\w+", question.lower()))
     best_sentence = ""
     best_score = -1
@@ -119,20 +117,16 @@ def _answer_extractive(question: str, context_chunks: List[str]) -> str:
                 best_score = score
                 best_sentence = sent
 
-    if best_sentence:
-        return best_sentence
-    return "I could not find a relevant answer in the provided documents."
+    return best_sentence or "I could not find a relevant answer in the provided documents."
 
 
 def get_answer(question: str, context_chunks: List[str]) -> str:
-    """Try HuggingFace API first, fall back to extractive if it fails."""
-    prompt = _build_prompt(question, context_chunks)
-
     # Ollama (local only)
     if os.getenv("USE_OLLAMA", "").strip() == "1":
         try:
             import requests
             model = os.getenv("OLLAMA_MODEL", "mistral")
+            prompt = question
             resp = requests.post(
                 "http://localhost:11434/api/generate",
                 json={"model": model, "prompt": prompt, "stream": False},
@@ -143,11 +137,10 @@ def get_answer(question: str, context_chunks: List[str]) -> str:
         except Exception as e:
             print(f"[llm_handler] Ollama failed: {e}")
 
-    # HuggingFace API
+    # HuggingFace new chat completions API
     try:
-        return _answer_hf(prompt)
+        return _answer_hf(question, context_chunks)
     except Exception as e:
-        # Show the real error clearly so it's easy to debug
         extractive = _answer_extractive(question, context_chunks)
         return (
             f"⚠️ **LLM Error:** {e}\n\n"
