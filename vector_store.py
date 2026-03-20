@@ -5,21 +5,22 @@ import numpy as np
 
 
 class VectorStore:
-    MODEL_NAME = "all-MiniLM-L6-v2" 
+    MODEL_NAME = "all-MiniLM-L6-v2"
 
     def __init__(self) -> None:
         self._chunks: List[str] = []
         self._metadata: List[Dict[str, Any]] = []
-        self._index = None  
+        self._index = None
         self._model = None
 
     def _load_model(self):
         if self._model is None:
             try:
                 import streamlit as st
-                self._model = st.session_state.get("_cached_model") or __import__(
-                    "sentence_transformers", fromlist=["SentenceTransformer"]
-                ).SentenceTransformer(self.MODEL_NAME)
+                self._model = st.session_state.get("_embed_model")
+                if self._model is None:
+                    from sentence_transformers import SentenceTransformer
+                    self._model = SentenceTransformer(self.MODEL_NAME)
             except Exception:
                 from sentence_transformers import SentenceTransformer
                 self._model = SentenceTransformer(self.MODEL_NAME)
@@ -30,7 +31,7 @@ class VectorStore:
             texts,
             show_progress_bar=False,
             convert_to_numpy=True,
-            normalize_embeddings=True,   # cosine via inner-product
+            normalize_embeddings=True,
         )
         return embeddings.astype(np.float32)
 
