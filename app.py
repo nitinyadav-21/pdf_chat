@@ -15,12 +15,11 @@ def get_cached_model():
 
 st.set_page_config(
     page_title="PDF Chat",
-    page_icon="📄",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-st.markdown("""
+st.markdown(
 <style>
     /* Main background */
     .stApp { background-color: #0f1117; }
@@ -89,7 +88,7 @@ st.markdown("""
         border: 1px solid #f87171;
     }
 </style>
-""", unsafe_allow_html=True)
+, unsafe_allow_html=True)
 
 
 if "messages" not in st.session_state:
@@ -103,15 +102,15 @@ if "processing" not in st.session_state:
 
 
 with st.sidebar:
-    st.markdown("## 📄 PDF Chat")
-    st.markdown("*Ask questions across your documents*")
+    st.markdown("PDF Chat")
+    st.markdown("Ask questions across your documents")
     st.divider()
 
     uploaded_files = st.file_uploader(
         "Upload PDFs",
         type=["pdf"],
         accept_multiple_files=True,
-        help="Upload one or more PDF files to chat with",
+        help="Upload one or more PDF files to chat",
     )
 
     if uploaded_files:
@@ -123,7 +122,7 @@ with st.sidebar:
     st.divider()
 
     process_btn = st.button(
-        "⚡ Process PDFs",
+        "Process",
         use_container_width=True,
         type="primary",
         disabled=(not uploaded_files),
@@ -146,12 +145,12 @@ with st.sidebar:
 
     st.divider()
 
-    with st.expander("⚙️ Settings", expanded=False):
+    with st.expander("Settings", expanded=False):
         chunk_size = st.slider("Chunk size (chars)", 200, 1000, 500, 50)
         top_k = st.slider("Top chunks to retrieve", 1, 8, 4)
         st.caption("Larger chunks = more context per result. Higher k = more sources checked.")
 
-    if st.button("🗑️ Clear chat", use_container_width=True):
+    if st.button("Clear Chats", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
 
@@ -164,7 +163,7 @@ with st.sidebar:
 
 
 if process_btn and uploaded_files:
-    with st.spinner("📚 Reading and indexing PDFs…"):
+    with st.spinner("Reading and indexing PDFs…"):
         try:
             tmp_dir = Path(tempfile.gettempdir()) / "pdf_chat_uploads"
             tmp_dir.mkdir(exist_ok=True)
@@ -185,19 +184,19 @@ if process_btn and uploaded_files:
                 st.session_state.vector_store = vs
                 st.session_state.processed_files = [f.name for f in uploaded_files]
                 st.session_state.messages = []  
-                st.success(f"✅ Indexed {len(chunks)} chunks from {len(uploaded_files)} PDF(s)!")
+                st.success(f"Indexed {len(chunks)} chunks from {len(uploaded_files)} PDF(s)!")
                 time.sleep(1)
                 st.rerun()
 
         except Exception as e:
             st.error(f"Error processing PDFs: {e}")
 
-st.markdown("## 💬 Chat with your PDFs")
+st.markdown("Chat with your PDFs")
 
 if not st.session_state.vector_store:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown("""
+        st.markdown(
         <div style='text-align:center; padding: 60px 20px; color: #6b6f8a;'>
             <div style='font-size: 64px; margin-bottom: 16px;'>📄</div>
             <h3 style='color: #9b9fc4;'>No PDFs loaded yet</h3>
@@ -205,7 +204,7 @@ if not st.session_state.vector_store:
             <br>
             <p style='font-size:13px;'>You can upload multiple PDFs and ask questions across all of them at once.</p>
         </div>
-        """, unsafe_allow_html=True)
+        , unsafe_allow_html=True)
 else:
     chat_area = st.container()
     with chat_area:
@@ -219,13 +218,13 @@ else:
                 sources_html = ""
                 if msg.get("sources"):
                     tags = "".join(
-                        f'<span class="source-tag">📄 {s}</span>'
+                        f'<span class="source-tag"></span>'
                         for s in msg["sources"]
                     )
                     sources_html = f"<div style='margin-top:8px;'>{tags}</div>"
                 st.markdown(
                     f'<div class="chat-container">'
-                    f'<div class="assistant-bubble">🤖 {msg["content"]}{sources_html}</div>'
+                    f'<div class="assistant-bubble">{msg["content"]}{sources_html}</div>'
                     f'</div>',
                     unsafe_allow_html=True,
                 )
@@ -244,7 +243,7 @@ else:
     if submitted and user_input.strip():
         st.session_state.messages.append({"role": "user", "content": user_input.strip()})
 
-        with st.spinner("🔍 Searching documents…"):
+        with st.spinner("Searching documents…"):
             try:
                 vs: VectorStore = st.session_state.vector_store
                 results = vs.search(user_input.strip(), k=top_k)
@@ -261,7 +260,7 @@ else:
                 st.session_state.messages.append(
                     {
                         "role": "assistant",
-                        "content": f"⚠️ Error generating answer: {e}",
+                        "content": f"Error generating answer: {e}",
                         "sources": [],
                     }
                 )
