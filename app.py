@@ -126,7 +126,7 @@ if not st.session_state.vector_store:
     with col2:
         st.markdown(
         <div style='text-align:center; padding: 60px 20px; color: #6b6f8a;'>
-            <div style='font-size: 64px; margin-bottom: 16px;'>📄</div>
+            <div style='font-size: 64px; margin-bottom: 16px;'></div>
             <h3 style='color: #9b9fc4;'>No PDFs loaded yet</h3>
             <p>Upload your PDFs in the sidebar and click <strong style='color:#667eea;'>Process PDFs</strong> to get started.</p>
             <br>
