@@ -19,78 +19,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.markdown(
-<style>
-    /* Main background */
-    .stApp { background-color: #0f1117; }
-
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #1a1d27;
-        border-right: 1px solid #2d2f3e;
-    }
-
-    /* Chat message bubbles */
-    .user-bubble {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 12px 16px;
-        border-radius: 18px 18px 4px 18px;
-        margin: 8px 0;
-        max-width: 80%;
-        margin-left: auto;
-        word-wrap: break-word;
-    }
-    .assistant-bubble {
-        background-color: #1e2132;
-        border: 1px solid #2d2f3e;
-        color: #e0e0e0;
-        padding: 12px 16px;
-        border-radius: 18px 18px 18px 4px;
-        margin: 8px 0;
-        max-width: 85%;
-        word-wrap: break-word;
-    }
-    .source-tag {
-        display: inline-block;
-        background-color: #2d2f3e;
-        color: #9b9fc4;
-        font-size: 11px;
-        padding: 2px 8px;
-        border-radius: 10px;
-        margin: 4px 2px 0 2px;
-    }
-    .chat-container {
-        padding: 10px 0;
-    }
-    /* Upload area */
-    .upload-hint {
-        text-align: center;
-        color: #6b6f8a;
-        font-size: 13px;
-        margin-top: 8px;
-    }
-    /* Status badge */
-    .status-ready {
-        background-color: #1a3a2a;
-        color: #4ade80;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 12px;
-        border: 1px solid #4ade80;
-    }
-    .status-pending {
-        background-color: #2a1a1a;
-        color: #f87171;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 12px;
-        border: 1px solid #f87171;
-    }
-</style>
-, unsafe_allow_html=True)
-
-
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "vector_store" not in st.session_state:
@@ -211,7 +139,7 @@ else:
         for msg in st.session_state.messages:
             if msg["role"] == "user":
                 st.markdown(
-                    f'<div class="chat-container"><div class="user-bubble">🧑 {msg["content"]}</div></div>',
+                    f'<div class="chat-container"><div class="user-bubble"> {msg["content"]}</div></div>',
                     unsafe_allow_html=True,
                 )
             else:
