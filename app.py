@@ -15,7 +15,6 @@ def get_cached_model():
 
 st.set_page_config(
     page_title="PDF Chat",
-    page_icon="📄",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -103,7 +102,7 @@ if "processing" not in st.session_state:
 
 
 with st.sidebar:
-    st.markdown("## 📄 PDF Chat")
+    st.markdown("## PDF Chat")
     st.markdown("*Ask questions across your documents*")
     st.divider()
 
@@ -123,7 +122,7 @@ with st.sidebar:
     st.divider()
 
     process_btn = st.button(
-        "⚡ Process PDFs",
+        "Process PDFs",
         use_container_width=True,
         type="primary",
         disabled=(not uploaded_files),
@@ -151,7 +150,7 @@ with st.sidebar:
         top_k = st.slider("Top chunks to retrieve", 1, 8, 4)
         st.caption("Larger chunks = more context per result. Higher k = more sources checked.")
 
-    if st.button("🗑️ Clear chat", use_container_width=True):
+    if st.button("Clear chat", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
 
@@ -164,7 +163,7 @@ with st.sidebar:
 
 
 if process_btn and uploaded_files:
-    with st.spinner("📚 Reading and indexing PDFs…"):
+    with st.spinner("Reading and indexing PDFs...."):
         try:
             tmp_dir = Path(tempfile.gettempdir()) / "pdf_chat_uploads"
             tmp_dir.mkdir(exist_ok=True)
@@ -185,14 +184,14 @@ if process_btn and uploaded_files:
                 st.session_state.vector_store = vs
                 st.session_state.processed_files = [f.name for f in uploaded_files]
                 st.session_state.messages = []  
-                st.success(f"✅ Indexed {len(chunks)} chunks from {len(uploaded_files)} PDF(s)!")
+                st.success(f"Indexed {len(chunks)} chunks from {len(uploaded_files)} PDF(s)!")
                 time.sleep(1)
                 st.rerun()
 
         except Exception as e:
             st.error(f"Error processing PDFs: {e}")
 
-st.markdown("## 💬 Chat with your PDFs")
+st.markdown("## Chat with your PDFs")
 
 if not st.session_state.vector_store:
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -212,20 +211,20 @@ else:
         for msg in st.session_state.messages:
             if msg["role"] == "user":
                 st.markdown(
-                    f'<div class="chat-container"><div class="user-bubble">🧑 {msg["content"]}</div></div>',
+                    f'<div class="chat-container"><div class="user-bubble">{msg["content"]}</div></div>',
                     unsafe_allow_html=True,
                 )
             else:
                 sources_html = ""
                 if msg.get("sources"):
                     tags = "".join(
-                        f'<span class="source-tag">📄 {s}</span>'
+                        f'<span class="source-tag">{s}</span>'
                         for s in msg["sources"]
                     )
                     sources_html = f"<div style='margin-top:8px;'>{tags}</div>"
                 st.markdown(
                     f'<div class="chat-container">'
-                    f'<div class="assistant-bubble">🤖 {msg["content"]}{sources_html}</div>'
+                    f'<div class="assistant-bubble">{msg["content"]}{sources_html}</div>'
                     f'</div>',
                     unsafe_allow_html=True,
                 )
@@ -261,7 +260,7 @@ else:
                 st.session_state.messages.append(
                     {
                         "role": "assistant",
-                        "content": f"⚠️ Error generating answer: {e}",
+                        "content": f"Error generating answer: {e}",
                         "sources": [],
                     }
                 )
