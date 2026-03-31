@@ -145,7 +145,7 @@ with st.sidebar:
 
     st.divider()
 
-    with st.expander("⚙️ Settings", expanded=False):
+    with st.expander("Settings", expanded=False):
         chunk_size = st.slider("Chunk size (chars)", 200, 1000, 500, 50)
         top_k = st.slider("Top chunks to retrieve", 1, 8, 4)
         st.caption("Larger chunks = more context per result. Higher k = more sources checked.")
